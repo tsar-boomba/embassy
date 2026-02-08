@@ -9,6 +9,7 @@ use fixed::traits::ToFixed;
 use fixed::types::extra::U8;
 
 use crate::clocks::clk_sys_freq;
+use crate::dma::Word;
 use crate::gpio::Level;
 use crate::pio::{Common, Direction, Instance, LoadedProgram, Pin, PioPin, ShiftDirection, StateMachine};
 use crate::spi::{Async, Blocking, Config, Mode};
@@ -352,6 +353,30 @@ impl<'d, PIO: Instance, const SM: usize> Spi<'d, PIO, SM, Async> {
         let tx_transfer = tx.dma_push(&mut tx_ch, buffer, false);
 
         join(tx_transfer, rx_transfer).await;
+
+        Ok(())
+    }
+
+    pub async fn bswap_write<W: Word>(&mut self, buffer: &[W]) -> Result<(), Error> {
+        // Temporarily change threshold for potentially larger words
+        self.sm.set_tx_threshold(size_of::<W>() as u8 * 8);
+        self.sm.set_rx_threshold(size_of::<W>() as u8 * 8);
+
+        let (rx, tx) = self.sm.rx_tx();
+
+        let mut rx_ch = self.rx_dma.as_mut().unwrap().reborrow();
+        // Use u16 for the discard so the count matches
+        let rx_transfer = rx.dma_pull_discard::<u16>(&mut rx_ch, buffer.len());
+
+        let mut tx_ch = self.tx_dma.as_mut().unwrap().reborrow();
+        // The 'true' here enables the RP2350 Byte Swap
+        let tx_transfer = tx.dma_push(&mut tx_ch, buffer, true);
+
+        join(tx_transfer, rx_transfer).await;
+
+        // Reset threshold to 1 byte for future commands
+        self.sm.set_tx_threshold(8);
+        self.sm.set_rx_threshold(8);
 
         Ok(())
     }
