@@ -234,10 +234,12 @@ impl<'d, P: Instance, const S: usize> PioI2sOut<'d, P, S> {
         self.sm.tx().dma_push(&mut self.dma, buff, false)
     }
 
-    /// Stops the state machine and updates the clock divider for the specified stream parameters
+    /// Stops the state machine and updates the clock divider for the specified stream parameters.
+    /// Also clears fifos.
     pub fn set_stream_parameters(&mut self, sample_rate: u32, bit_depth: u32) {
         let bclk_frequency: u32 = sample_rate * bit_depth * 2;
         self.sm.set_enable(false);
         self.sm.set_clock_divider(calculate_pio_clock_divider(bclk_frequency * PIO_I2S_OUT_PROGRAM_CLK_MULTIPLIER));
+        self.sm.clear_fifos();
     }
 }
