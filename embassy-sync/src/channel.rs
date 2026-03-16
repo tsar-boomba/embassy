@@ -793,6 +793,12 @@ impl<T, const N: usize> ChannelState<T, N> {
         self.queue.clear();
     }
 
+    fn clear_w_cleared(&mut self) -> usize {
+        let cleared = self.queue.len();
+        self.clear();
+        cleared
+    }
+
     fn len(&self) -> usize {
         self.queue.len()
     }
@@ -970,6 +976,11 @@ where
     /// Clears all elements in the channel.
     pub fn clear(&self) {
         self.lock(|c| c.clear());
+    }
+
+    /// Clears all the elements in the channel, returning how many were cleared.
+    pub fn clear_w_cleared(&self) -> usize {
+        self.lock(|c| c.clear_w_cleared())
     }
 
     /// Returns the number of elements currently in the channel.
